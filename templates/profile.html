@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <title>Application</title>
+</head>
+<body class="h-screen flex items-center justify-center bg-slate-100">
+    <nav class="fixed top-0 left-0 right-0 w-full h-20 p-4 bg-white flex justify-end">
+        <ul class="flex items-center gap-4">
+            <li><a href="/profile" class="text-lg font-bold">My Profile</a></li>
+            <li><a href="/logout" class="text-lg font-bold">Logout</a></li>
+        </ul>
+    </nav>
+
+    <div class="w-11/12 max-w-[500px] p-6 rounded-xl bg-white">
+        <h1 class="text-center text-xl font-bold mb-4">User Details</h1>
+
+        {% if user %}
+            <div class="flex flex-wrap gap-4 justify-center">
+                <div>
+                    <h2 class="font-bold">Username</h2>
+                    <p>{{ user[1] }}</p>
+                </div>
+                <div>
+                    <h2 class="font-bold">First Name</h2>
+                    <p>{{ user[3] }}</p>
+                </div>
+                <div>
+                    <h2 class="font-bold">Last Name</h2>
+                    <p>{{ user[4] }}</p>
+                </div>
+                <div>
+                    <h2 class="font-bold">Email</h2>
+                    <p>{{ user[5] }}</p>
+                </div>
+            </div>
+        {% else %}
+            <p>User not found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

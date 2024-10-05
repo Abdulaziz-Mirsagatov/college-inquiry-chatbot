@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <title>Application</title>
+</head>
+<body class="h-screen flex items-center justify-center bg-slate-100 pt-20">
+    <nav class="fixed top-0 left-0 right-0 w-full h-20 p-4 bg-white flex justify-end">
+        <ul class="flex items-center gap-4">
+            <li><a href="/profile" class="text-lg font-bold">My Profile</a></li>
+            <li><a href="/login" class="text-lg font-bold">Login</a></li>
+        </ul>
+    </nav>
+
+    <div class="w-11/12 max-w-[500px] p-6 rounded-xl bg-white">
+        <h1 class="text-center text-xl font-bold mb-4">Register</h1>
+
+        <form action="/register" method="post" class="grid gap-4">
+            <div class="grid gap-2">
+                <label for="firstName">First Name</label>
+                <input type="text" name="firstName" class="p-2 rounded-md outline-slate-100 border border-gray-100" required />
+            </div>
+            <div class="grid gap-2">
+                <label for="lastName">Last Name</label>
+                <input type="text" name="lastName" class="p-2 rounded-md outline-slate-100 border border-gray-100" required />
+            </div>
+            <div class="grid gap-2">
+                <label for="email">Email</label>
+                <input type="email" name="email" class="p-2 rounded-md outline-slate-100 border border-gray-100" required />
+            </div>
+            <div class="grid gap-2">
+                <label for="username">Username</label>
+                <input type="text" name="username" class="p-2 rounded-md outline-slate-100 border border-gray-100" required />
+            </div>
+            <div class="grid gap-2">
+                <label for="password">Password</label>
+                <input type="password" name="password" class="p-2 rounded-md outline-slate-100 border border-gray-100" required />
+            </div>
+
+            <button type="submit" class="w-full py-2 rounded-md text-white bg-black hover:bg-black/70 transition-colors mt-4 font-bold">Submit</button>
+        </form>
+    </div>
+</body>
+</html>

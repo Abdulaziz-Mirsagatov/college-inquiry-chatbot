@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <title>Chat</title>
+  </head>
+  <body class="bg-gray-100 h-screen flex flex-col pt-20">
+    <nav
+      class="fixed top-0 left-0 right-0 w-full h-20 p-4 bg-white flex justify-end"
+    >
+      <ul class="flex items-center gap-4">
+        <li><a href="/chat" class="text-lg font-bold">Chat</a></li>
+        <li><a href="/logout" class="text-lg font-bold">Logout</a></li>
+      </ul>
+    </nav>
+
+    <div class="flex-grow overflow-y-auto p-4">
+      <div class="chat-messages">
+        {% for message in messages %}
+        <div class="mb-4">
+          <div class="text-gray-700 p-4 bg-white rounded-md">
+            {{ message.message }} {% if message.show_user_details %}
+            <br />
+            <br />
+            <span class="mt-4 font-medium"
+              >User details: {{user[3]}} {{user[4]}}, {{user[5]}}</span
+            >
+            <br />
+            <span class="mt-4 font-medium"
+              >Chatbot creator details: Abdulaziz Mirsagatov,
+              mirsagah@mail.uc.edu</span
+            >
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="bg-white p-4 border-t border-gray-200">
+      <form action="/chat" method="POST" id="chat-form">
+        <textarea
+          name="message"
+          class="w-full border border-gray-300 rounded-md p-2"
+          placeholder="{{placeholder_text}}"
+          id="chat-input"
+        ></textarea>
+        <button
+          type="submit"
+          class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2 w-full"
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  </body>
+
+  <script>
+    // JavaScript to handle Enter key submission
+    const form = document.getElementById("chat-form");
+    const textarea = document.getElementById("chat-input");
+
+    textarea.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault(); // Prevent newline in the textarea
+        form.submit(); // Submit the form
+      }
+    });
+  </script>
+</html>

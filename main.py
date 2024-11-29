@@ -1,38 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import sqlite3
-import os
+import firebase_admin
+from firebase_admin import credentials, db
 
 app = Flask(__name__)
 app.secret_key = 'the_super_secret_key'  # Set a strong secret key
 
-# SQLite setup
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(BASE_DIR, "app.db")
-
-conn = sqlite3.connect(db_path)
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50) DEFAULT NULL,
-    last_name VARCHAR(50) DEFAULT NULL,
-    email VARCHAR(100) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)''')
-c.execute('''CREATE TABLE IF NOT EXISTS chats (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username VARCHAR(50) NOT NULL REFERENCES users(username),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)''')
-c.execute('''CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    chat_id INTEGER REFERENCES chats(id),
-    message TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)''')
-conn.commit()
-conn.close()
+cred = credentials.Certificate("key.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://college-chatbot-99f9e-default-rtdb.firebaseio.com/'
+})
 
 questions = [
     "does the college have a football team?",
@@ -60,15 +36,13 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        user = c.execute(
-            'SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        conn.commit()
-        conn.close()
+        users_ref = db.reference('users')
+        users = users_ref.get()
+        user = None if isinstance(
+            users, str) else users_ref.child(username).get()
 
-        if user and user[2] == password:
-            session['username'] = user[1]  # Store username in session
+        if user and user["password"] == password:
+            session['username'] = user["username"]  # Store username in session
             return redirect(url_for('chat'))
         else:
             return "Invalid username or password", 401
@@ -89,17 +63,17 @@ def register():
     username = request.form['username']
     password = request.form['password']
 
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    # Check if the user with the given username already exists
-    existing_user = c.execute(
-        "SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    users_ref = db.reference('users')
+    users = users_ref.get()
+    existing_user = None if isinstance(users, str) else users_ref.child(
+        username).get()
+
     if existing_user:
         return "User with this username already exists", 400
-    c.execute("INSERT INTO users (username, password) VALUES (?, ?)",
-              (username, password))
-    conn.commit()
-    conn.close()
+    db.reference('users').child(username).set({
+        "username": username,
+        "password": password
+    })
 
     return redirect(url_for('chat'))
 
@@ -110,51 +84,35 @@ def chat():
         # Redirect to login if not authenticated
         return redirect(url_for('login'))
 
-    print("session username", session['username'])
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=?", (session['username'],))
-    user = c.fetchone()
-    print("user", user)
-    # fetch user's chat
-    c.execute("SELECT * FROM chats WHERE username=?", (session['username'],))
-    chat = c.fetchone()
-    if not chat:
-        c.execute("INSERT INTO chats (username) VALUES (?)",
-                  (session['username'],))
-        conn.commit()
-        c.execute("SELECT * FROM chats WHERE username=?",
-                  (session['username'],))
-        chat = c.fetchone()
-    # fetch chat messages
-    c.execute("SELECT * FROM messages WHERE chat_id=?", (chat[0],))
-    messages = c.fetchall()
-    conn.commit()
-    conn.close()
-
+    users_ref = db.reference('users')
+    users = users_ref.get()
+    user = None if isinstance(users, str) else users_ref.child(
+        session['username']).get()
     if not user:
         return redirect(url_for('login'))
 
+    messages = user["messages"] if "messages" in user else {}
+
     placeholder_text = "Enter your questions here..."
-    if not user[3]:
+    if "first_name" not in user or not user["first_name"]:
         placeholder_text = "Enter your first name here..."
-    elif not user[4]:
+    elif "last_name" not in user or not user["last_name"]:
         placeholder_text = "Enter your last name here..."
-    elif not user[5]:
+    elif "email" not in user or not user["email"]:
         placeholder_text = "Enter your email here..."
 
     processed_messages = [
         {
-            "message": msg[2],
-            "show_user_details": not (msg[2].lower().startswith("sorry") or msg[2].lower().startswith("please"))
+            "message": msg,
+            "show_user_details": not (msg.lower().startswith("sorry") or msg.lower().startswith("please"))
         }
-        for msg in messages
+        for _, msg in messages.items()
     ]
 
     return render_template('chat.html', user=user, placeholder_text=placeholder_text, messages=processed_messages)
 
 
-@app.route('/chat', methods=['POST'])
+@ app.route('/chat', methods=['POST'])
 def post_message():
     if 'username' not in session:
         return redirect(url_for('login'))
@@ -162,53 +120,41 @@ def post_message():
     message = request.form['message']
     normalized_message = message.strip().lower()
 
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=?", (session['username'],))
-    user = c.fetchone()
-    c.execute("SELECT * FROM chats WHERE username=?", (session['username'],))
-    chat = c.fetchone()
+    users_ref = db.reference('users')
+    users = users_ref.get()
+    user = None if isinstance(users, str) else users_ref.child(
+        session['username']).get()
+    if not user:
+        return redirect(url_for('login'))
 
     index = questions.index(
         normalized_message) if normalized_message in questions else -1
-    if not user:
-        return redirect(url_for('login'))
-    # Check if the user has provided their first name, last name, and email
-    if (not user[3] or not user[4] or not user[5]) and index != -1:
-        c.execute("INSERT INTO messages (chat_id, message) VALUES (?, ?)",
-                  (chat[0], "Please, enter the requested information first."))
-        conn.commit()
-        conn.close()
+
+    if ("first_name" not in user or not user["first_name"] or "last_name" not in user or not user["last_name"] or "email" not in user or not user["email"]) and index != -1:
+        users_ref.child(user["username"]).child("messages").push("Please, enter the requested information first."
+                                                                 )
         return redirect(url_for('chat'))
-    if not user[3]:
-        c.execute("UPDATE users SET first_name = ? WHERE username = ?",
-                  (message, session['username']))
-        conn.commit()
-        conn.close()
+    if "first_name" not in user or not user["first_name"]:
+        db.reference('users/' + user["username"]).update({
+            "first_name": message
+        })
         return redirect(url_for('chat'))
-    if not user[4]:
-        c.execute("UPDATE users SET last_name = ? WHERE username = ?",
-                  (message, session['username']))
-        conn.commit()
-        conn.close()
+    if "last_name" not in user or not user["last_name"]:
+        db.reference('users/' + user["username"]).update({
+            "last_name": message
+        })
         return redirect(url_for('chat'))
-    if not user[5]:
-        c.execute("UPDATE users SET email = ? WHERE username = ?",
-                  (message, session['username']))
-        conn.commit()
-        conn.close()
+    if "email" not in user or not user["email"]:
+        db.reference('users/' + user["username"]).update({
+            "email": message
+        })
         return redirect(url_for('chat'))
     if index == -1:
-        c.execute("INSERT INTO messages (chat_id, message) VALUES (?, ?)",
-                  (chat[0], "Sorry, I don't understand. You can ask me questions like: 'does the college have a football team?', 'does it offer a computer science major?', 'what is the in-state tuition?', 'does it provide on-campus housing?'"))
-        conn.commit()
-        conn.close()
+        users_ref.child(user["username"]).child('messages').push("Sorry, I don't understand. You can ask me questions like: 'does the college have a football team?', 'does it offer a computer science major?', 'what is the in-state tuition?', 'does it provide on-campus housing?'"
+                                                                 )
         return redirect(url_for('chat'))
 
-    c.execute("INSERT INTO messages (chat_id, message) VALUES (?, ?)",
-              (chat[0], answers[index]))
-    conn.commit()
-    conn.close()
+    users_ref.child(user["username"]).child('messages').push(answers[index])
 
     return redirect(url_for('chat'))
 
